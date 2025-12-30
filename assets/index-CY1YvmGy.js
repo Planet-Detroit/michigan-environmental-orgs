@@ -727,4 +727,4 @@ ${V}`}class Te extends Error{constructor({message:i,code:s,cause:u,name:f}){var 
             grid-template-columns: 1fr;
           }
         }
-      `})]})};function C1(){return O.jsxs(O.Fragment,{children:[O.jsx(w0,{}),O.jsxs(qy,{children:[O.jsx(df,{path:"/",element:O.jsx(S1,{})}),O.jsx(df,{path:"/submit",element:O.jsx(O1,{})})]})]})}Iv.createRoot(document.getElementById("root")).render(O.jsx(D.StrictMode,{children:O.jsx(h0,{children:O.jsx(C1,{})})}));
+      `})]})};function C1(){return O.jsxs(O.Fragment,{children:[O.jsx(w0,{}),O.jsxs(qy,{children:[O.jsx(df,{path:"/",element:O.jsx(S1,{})}),O.jsx(df,{path:"/submit",element:O.jsx(O1,{})})]})]})}Iv.createRoot(document.getElementById("root")).render(O.jsx(D.StrictMode,{children:O.jsx(h0,{basename:"/michigan-environmental-orgs",children:O.jsx(C1,{})})}));
