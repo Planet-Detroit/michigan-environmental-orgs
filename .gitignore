@@ -1,0 +1,12 @@
+
+# macOS
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Node
+node_modules/.DS_Store
+node_modules/.cache/
+

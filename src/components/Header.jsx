@@ -9,7 +9,7 @@ export default function Header() {
           {/* Centered Logo */}
           <a href="https://planetdetroit.org" className="flex-1 flex justify-center">
             <img 
-              src="/images/planet-detroit-logo.png" 
+              src={`${import.meta.env.BASE_URL}images/planet-detroit-logo.png`}
               alt="Planet Detroit" 
               className="h-20"
               onError={(e) => {
