@@ -58,7 +58,9 @@ The base record. One row per organization, business, or informal group, regardle
 | `pd_verified` | bool | True when a Planet Detroit human has confirmed the record |
 | `pd_verified_at` | timestamptz | |
 | `pd_verified_by` | text | |
-| `primary_source` | text | Where the record originated: `propublica`, `planet_detroit_curation`, `mec_intake`, `b_corp_directory`, `egle_arcgis`, `osm`, `submission_form`, etc. |
+| `last_verified_active` | timestamptz | When this entity was last confirmed to still be operating. Critical for Tier 3 informal groups whose Facebook pages can go dark without warning. |
+| `confidence_indicator` | numeric(3,2) | 0.00 – 1.00. How confident are we that this record is accurate and the entity is real? Defaults to 1.0 for Tier 1 with 990 verification, lower for Tier 3 records sourced from social media discovery alone. |
+| `primary_source` | text | Where the record originated. Examples: `propublica`, `planet_detroit_curation`, `mec_intake`, `b_corp_directory`, `egle_arcgis`, `osm`, `submission_form`, `google_search_facebook`, `google_search_instagram`, `manual_intake_mec`, etc. |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |
 

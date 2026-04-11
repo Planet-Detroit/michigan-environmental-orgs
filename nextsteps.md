@@ -167,13 +167,29 @@ Once Tier 1 is solid, layer in for-profits.
 
 ---
 
-## Phase 7 — Tier 3 informal groups (recurring, not one-shot)
+## Phase 7 — Tier 3 informal groups (matches proposal "Data Expansion" budget phase, then ongoing)
 
-- [ ] Build a lightweight intake form for MEC staff and Planet Detroit reporters to add unincorporated groups they encounter
-- [ ] Run twice-yearly social media + news search sweeps, AI-assisted, surfaced for human review
-- [ ] Confidence indicator and "last verified active" date displayed on every Tier 3 record
+The initial technology build for Tier 3 is modest but real — it shares the Data Expansion phase with Tier 2. The larger ongoing cost is recurring staff or contractor time for sweeps, outreach, and verification.
 
-**Out:** Tier 3 ingestion as a sustained operational practice, per the proposal.
+### Initial build (within Data Expansion phase, ~20-40 hours)
+
+- [ ] Build the AI-assisted Google search runner: scheduled job that runs queries against `site:facebook.com`, `site:instagram.com`, and similar with rotating keyword and geography filters; captures URLs and search-result metadata
+- [ ] Build the Open Graph metadata fetcher: pulls page name, description, and image from each candidate URL via standard HTTP (no Facebook login or API access required)
+- [ ] Build the EIN-matching filter: compares each candidate against `entities` to separate "already in Tier 1" from "potentially Tier 3" — the same workflow surfaces Tier 1 enrichment opportunities and Tier 3 discovery candidates
+- [ ] Build the Tier 3 review queue in the admin tool: surfaces candidates with thumbnails, source attribution, and accept/reject controls
+- [ ] Build a "verification refresh" workflow: periodic re-check that existing Tier 3 records are still active (page hasn't gone dark, last activity within a configurable window)
+- [ ] Build a lightweight intake form for MEC staff and Planet Detroit reporters to add groups they encounter directly, bypassing the search-discovery step
+- [ ] Surface `confidence_indicator` and `last_verified_active` date on every Tier 3 record in the admin tool and the public directory
+
+### Ongoing operations (Year 2+, the larger commitment)
+
+- [ ] Run twice-yearly focused sweeps: review the AI-surfaced candidates, decide which to accept, do additional manual research for borderline cases
+- [ ] Maintain search keywords and filters as new issues emerge (PFAS, data centers, lithium mining, lake associations, etc.)
+- [ ] Outreach to conservation districts and community foundations for groups that don't appear in search results
+- [ ] Review of public meeting minutes from priority municipalities for groups mentioned by name
+- [ ] Refresh verification on existing Tier 3 records; flag stale ones for re-confirmation or removal
+
+**Out:** Tier 3 build complete and integrated into the entities table; ongoing sweep practice established.
 
 ---
 
