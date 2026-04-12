@@ -60,7 +60,7 @@ The base record. One row per organization, business, or informal group, regardle
 | `pd_verified_by` | text | |
 | `last_verified_active` | timestamptz | When this entity was last confirmed to still be operating. Critical for Tier 3 informal groups whose Facebook pages can go dark without warning. |
 | `confidence_indicator` | numeric(3,2) | 0.00 – 1.00. How confident are we that this record is accurate and the entity is real? Defaults to 1.0 for Tier 1 with 990 verification, lower for Tier 3 records sourced from social media discovery alone. |
-| `primary_source` | text | Where the record originated. Examples: `propublica`, `planet_detroit_curation`, `mec_intake`, `b_corp_directory`, `egle_arcgis`, `osm`, `submission_form`, `google_search_facebook`, `google_search_instagram`, `manual_intake_mec`, etc. |
+| `primary_source` | text | Where the record originated. Examples: `irs_990_xml`, `planet_detroit_curation`, `mec_intake`, `b_corp_directory`, `egle_arcgis`, `osm`, `submission_form`, `google_search_facebook`, `google_search_instagram`, `manual_intake_mec`, etc. |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |
 
@@ -134,14 +134,39 @@ One-to-many by year. May already exist in the current schema; this is the canoni
 | `liabilities_total` | numeric | |
 | `net_assets` | numeric | |
 | `health_score` | text | `healthy`, `stable`, `at_risk` (computed) |
-| `source_990_id` | text | ProPublica filing ID |
+| `source_990_id` | text | IRS e-file object ID (from bulk XML downloads) |
 | `imported_at` | timestamptz | |
 
 Composite unique constraint on `(entity_id, fiscal_year)`.
 
+### `entity_people`
+
+Officers, directors, trustees, and key employees extracted from IRS 990 Part VII Section A. One row per person per entity per fiscal year.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid (PK) | |
+| `entity_id` | uuid (FK → `entities`) | |
+| `fiscal_year` | smallint | Which 990 filing this came from |
+| `person_name` | text | As reported on the 990 |
+| `title` | text | e.g. "Executive Director", "Board Chair", "Treasurer" |
+| `hours_per_week` | numeric | Average hours per week |
+| `is_officer` | bool | |
+| `is_director_or_trustee` | bool | |
+| `is_key_employee` | bool | |
+| `reportable_comp_from_org` | numeric | From Schedule J / Part VII |
+| `reportable_comp_from_related` | numeric | Compensation from related organizations |
+| `other_compensation` | numeric | |
+| `source` | text | `irs_990_xml`, `candid_premier`, etc. |
+| `imported_at` | timestamptz | |
+
+This table enables network mapping across organizations: identifying board overlaps, shared leadership, and the people connecting Michigan's environmental movement. The same person appearing on multiple boards is a first-class query ("show me everyone who sits on more than one environmental board in Southeast Michigan").
+
+Composite unique constraint on `(entity_id, fiscal_year, person_name)`.
+
 ### `geographic_regions`
 
-Promotes the hardcoded `geographicHierarchy.js` into the database. Self-referencing tree.
+Promotes the hardcoded `geographicHierarchy.js` into the database. Self-referencing tree. Note: legislative district querying (state senate/house districts) does not require storing districts in this table — it can be done at query time via spatial joins against the entity's lat/lon coordinates and publicly available district boundary shapefiles. This keeps the geographic hierarchy clean while still supporting MEC's primary use case of pulling all orgs in a given district.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -250,10 +275,9 @@ For pending submissions from the public form. Separate from `entities` so the cu
 
 These are intentionally out of scope for v1:
 
-- **Board/staff tables** (Schedule J/O data from 990s) — deferred to a later phase
 - **Grants/funding flows** (Form 990 Schedule I) — deferred
 - **Multi-language support** for tags or descriptions
 - **Custom roles/permissions** — handled at the Supabase RLS layer
-- **Tracking changes to ProPublica source data over time** — `enrichment_log` covers our edits, not upstream changes
+- **Legislative district boundaries as stored data** — handled at query time via spatial joins against lat/lon
 
 These can be added without breaking the v1 design.

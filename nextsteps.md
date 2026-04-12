@@ -1,6 +1,6 @@
 # Next Steps — ECOcensus 2.0 Rebuild
 
-**Decision:** Start fresh on the database schema, ingest the full ProPublica universe with AI classification, and merge the existing 607 curated organizations as a verified overlay. Keep the public site running on the old schema for a 2-3 week overlap period, then cut over.
+**Decision:** Start fresh on the database schema, ingest the full IRS 990 XML universe with AI classification, and merge the existing 607 curated organizations as a verified overlay. Keep the public site running on the old schema for a 2-3 week overlap period, then cut over.
 
 **Source of truth for schema design:** [`schema.md`](./schema.md)
 
@@ -41,14 +41,17 @@ Goal: stand up the v2 schema in the same Supabase project under a new namespace,
 
 ---
 
-## Phase 2 — Ingest ProPublica + AI classify (4-5 days)
+## Phase 2 — Ingest IRS 990 XML + AI classify (4-5 days)
 
-Goal: populate `entities` with the full universe of MI environmental nonprofits, AI-classified at ingest time.
+Goal: populate `entities` with the full universe of MI environmental nonprofits, AI-classified at ingest time, with board member data from day one.
 
-- [ ] Build the ProPublica ingestion script
-  - Query Nonprofit Explorer API for all MI 501(c)(3)s with environmental NTEE codes (C, D, plus selected codes from food/ag, housing, recreation, science, community improvement per the Johnson Center scoping)
-  - For each: pull most recent 990 (mission, programs, financials, address, EIN)
-  - Insert into `entities` with `tier=1`, `primary_source='propublica'`
+- [ ] Build the IRS XML ingestion pipeline
+  - Download monthly bulk ZIP files from `apps.irs.gov/pub/epostcard/990/xml/`
+  - Parse 990 XML for each MI nonprofit matching target NTEE codes (C, D, plus selected codes from food/ag, housing, recreation, science, community improvement per the Johnson Center scoping)
+  - Extract core org data: mission, program descriptions, financials, address, EIN
+  - Extract Part VII Section A: board members, officers, directors, trustees (name, title, hours, compensation) → write to `entity_people`
+  - Extract Schedule J compensation detail where available
+  - Insert orgs into `entities` with `tier=1`, `primary_source='irs_990_xml'`
   - Insert financial history into `financials` (one row per fiscal year per org)
 - [ ] Build the AI classification step
   - For each new entity, call Claude API with mission + program descriptions
@@ -60,9 +63,11 @@ Goal: populate `entities` with the full universe of MI environmental nonprofits,
 - [ ] Run full ingestion. Expect 1,500-3,000 entities depending on NTEE code breadth.
 - [ ] Generate embeddings for "similar orgs" search (one batch call per ~100 orgs)
 
-**Out:** `entities` populated with the full universe, AI-classified, geocoded.
+**Out:** `entities` populated with the full universe, AI-classified, geocoded, with board member data in `entity_people`.
 
 **Estimated AI cost:** Under $50 total at fractions of a cent per record.
+
+**Note on data source:** The IRS bulk XML replaces the ProPublica API as the primary data source. ProPublica's API returns only aggregate financial fields and no board member data. The IRS XML contains the full 990 filing including Part VII (officers/directors), Schedule J (compensation detail), and Part III (program descriptions). The trade-off is that the XML requires a custom parser, but once built it covers all states at no additional cost and provides substantially richer data than any free API.
 
 ---
 
@@ -72,7 +77,7 @@ Goal: preserve the human work in the existing `organizations` table by joining i
 
 - [ ] For each row in the existing `organizations` table:
   - If EIN matches a row in `entities`: enrich the new row with the curated data (verified contact info, social URLs, mission text from website, partnership flags, geocoding if missing)
-  - If no EIN match: insert as a new entity with `primary_source='planet_detroit_curation'` and `tier=1` (these are likely 501(c)(4)s, fiscally-sponsored projects, or orgs ProPublica missed)
+  - If no EIN match: insert as a new entity with `primary_source='planet_detroit_curation'` and `tier=1` (these are likely 501(c)(4)s, fiscally-sponsored projects, or orgs not in the IRS e-file data)
 - [ ] For each curated row, also migrate the focus tags into `entity_tags` with `source='admin_review'` and `confidence=1.0` (so human tags rank above AI tags)
 - [ ] Set `pd_verified=true` and copy `verified_at` / `verified_by` for all curated orgs
 - [ ] Set `is_planet_champion` and `is_impact_partner` flags from the old table
@@ -120,7 +125,7 @@ Goal: point everything that reads or writes the old `organizations` table at the
   - `get_all_organizations()` — query `ecocensus.entities` with appropriate joins for focus tags
   - `/api/stats` org count — query `entities` table
   - **Redeploy to Railway** (this is the critical path for civic-action-builder)
-- [ ] Bump `civic-action-builder` API limit from `700` to a higher number (or add proper pagination) — the new table will exceed 700 rows after Phase 2 ProPublica ingest
+- [ ] Bump `civic-action-builder` API limit from `700` to a higher number (or add proper pagination) — the new table will exceed 700 rows after Phase 2 IRS XML ingest
 - [ ] Test all consumers in a staging/preview deployment
 - [ ] Keep the old `public.organizations` table read-only for one week as fallback
 - [ ] Cutover production in this order:
@@ -143,9 +148,11 @@ The current admin tool (`admin-tools/org-admin-FINAL-with-pending.html`) was bui
 - [ ] **Tag management view**: see the official 14 focus areas, plus AI-discovered tags awaiting curation. Promote useful AI tags to `is_official=true`.
 - [ ] **Pending submissions view**: same as before, but now with AI pre-classification of the submitted org so the admin doesn't start from scratch.
 - [ ] **Data quality view**: orgs missing fields, low-confidence classifications, duplicate candidates from Phase 3.
+- [ ] **Geographic querying**: query orgs by state senate or house district using spatial joins against entity lat/lon and publicly available legislative district boundary shapefiles. This is MEC's primary membership recruitment use case — pull all environmental orgs in a target district for outreach. Implemented as a query-time spatial join, not pre-computed tags.
+- [ ] **Board member search**: query `entity_people` to find shared board members across orgs, people serving on multiple environmental boards, and board composition by region.
 - [ ] **Bulk actions**: keep the keyword search + bulk-tag from the old tool — it's still useful, just supplementary now.
 
-**Out:** Admin tool optimized for AI-first workflows.
+**Out:** Admin tool optimized for AI-first workflows, with legislative-district querying and board member search.
 
 ---
 
@@ -200,7 +207,7 @@ The initial technology build for Tier 3 is modest but real — it shares the Dat
 | EIN matching in Phase 3 misses orgs that were curated under different name/EIN | Manual review queue for unmatched curated rows; nothing gets dropped without a human looking |
 | Public site breaks during cutover | Deploy to Vercel preview first; old table stays read-only for a week as fallback |
 | AI misclassifies orgs at scale | Confidence threshold + human review queue; admin can override and the override sticks |
-| ProPublica API rate limits | Run ingestion overnight; ProPublica API is well-behaved |
+| IRS XML schema changes between filing years | Build parser with version detection; test against multiple years before full run |
 | Duplicate orgs from Phase 3 merge | Flag, don't auto-merge; surface in admin review queue |
 | Embeddings cost more than expected | Use a smaller model for embeddings (Voyage or text-embedding-3-small instead of vector-1536); switch if needed |
 | MEC starts using the old admin tool mid-cutover | Communicate freeze to MEC; offer them the new tool the moment Phase 5 ships |
@@ -212,7 +219,7 @@ The initial technology build for Tier 3 is modest but real — it shares the Dat
 - Migrating `media_mentions` data structure beyond the FK rename
 - Rebuilding the civic-action-builder integration (it just reads via the existing API; should keep working with the new schema if we update the API endpoint)
 - Multi-state expansion (deferred per the proposal's Long-Term Sustainability section)
-- Board member networks (Schedule J/O parsing) — deferred
+- Board member network *visualization* (graph UI showing board overlaps) — deferred; the data is collected in Phase 2 but the network visualization tool is a separate build
 - Grant flows (Schedule I parsing) — deferred
 
 ---
@@ -223,7 +230,7 @@ The initial technology build for Tier 3 is modest but real — it shares the Dat
 |---|---|---|
 | 0. Freeze | 1 day | 1 day |
 | 1. New schema, empty | 3-4 days | ~1 week |
-| 2. Ingest ProPublica + AI classify | 4-5 days | ~2 weeks |
+| 2. Ingest IRS 990 XML + AI classify | 4-5 days | ~2 weeks |
 | 3. Merge curated overlay | 2-3 days | ~2.5 weeks |
 | 4. Cutover public site | 3-4 days | ~3 weeks |
 | 5. Rebuild admin tool | 3-5 days | ~4 weeks |
